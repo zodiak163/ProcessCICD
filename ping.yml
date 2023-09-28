@@ -1,0 +1,7 @@
+---
+- name: Проверить соединение с хостами
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Проверить соединение с хостами
+      ping:
