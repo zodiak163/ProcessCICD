@@ -1,0 +1,78 @@
+version: '3'
+services:
+  es-hot:
+    image: elasticsearch:8.11.0
+    container_name: es-hot
+    environment:
+      - node.name=es-hot
+      - cluster.name=es-cluster
+      - discovery.seed_hosts=es-hot,es-warm
+      - cluster.initial_master_nodes=es-hot
+      - node.roles=master,ingest,hot_data
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-hot-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - elastic
+  es-warm:
+    image: elasticsearch:8.11.0
+    container_name: es-warm
+    environment:
+      - node.name=es-warm
+      - cluster.name=es-cluster
+      - discovery.seed_hosts=es-hot,es-warm
+      - cluster.initial_master_nodes=es-hot
+      - node.roles=data,warm
+      - node.attr.warm=hot_data
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-warm-data:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+
+
+
+
+  logstash:
+    image: logstash:8.11.0
+    container_name: logstash
+    volumes:
+      - ./logstash.conf:/home/zodiak/ProcessCICD/4/logstash/logstash.conf
+    ports:
+      - 5000:5000
+    command: logstash -e 'input { tcp { port => 5000 codec => json_lines } } output { elasticsearch { hosts => ["elasticsearch:9200"] } }'
+
+  kibana:
+    image: kibana:8.11.0
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.15.1
+    container_name: filebeat
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./filebeat.yml:/home/zodiak/ProcessCICD/4/filebeat/filebeat.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    command: filebeat -e
+
+volumes:
+  es-hot-data:
+  es-warm-data:
+
+networks:
+  elastic:
